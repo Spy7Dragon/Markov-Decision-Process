@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import scipy.spatial.distance as distance
+import QLearningAgent
 
 X, Y, Z = range(0, 3)
 NONE, LEFT, RIGHT = range(0, 3)
@@ -34,7 +35,7 @@ class SkiJumper:
                 for j in range(0, dimensions):
                     dist = distance.euclidean([i, j],
                                               [self.center[X], self.center[Y]])
-                    alt = SkiJumper.mountain_height - dist * 500
+                    alt = SkiJumper.mountain_height - dist * (SkiJumper.mountain_height / 70)
                     self.landscape[i].append(alt)
             SkiJumper.saved_landscape = self.landscape
         else:
@@ -203,13 +204,13 @@ class SkiJumper:
         return P
 
     @staticmethod
-    def value_iteration(model):
+    def value_iteration(model, max_iter=10):
         U = np.full(len(model.states), 0.0)
         finished = False
         threshold = 10
         gamma = 0.99
         iterations = 0
-        while not finished:
+        while not finished and iterations < max_iter:
             difference = 0.0
             highest_z = SkiJumper.mountain_height + SkiJumper.jumper_height
             for i in range(0, 2 * SkiJumper.jumper_height):
@@ -239,3 +240,23 @@ class SkiJumper:
                 finished = True
         print "Iterations: " + str(iterations)
         print U
+
+    @staticmethod
+    def qlearner_iteration(model, epochs=10000):
+        discount = 0.9
+        alpha = 0.5
+        random_rate = 0.1
+        learner = QLearningAgent.QLearningAgent(len(model.states), len(model.actions),
+                                                discount_rate=discount, learning_rate=alpha, random_rate=random_rate)
+
+        for i in range(0, epochs):
+            model = SkiJumper()
+            action = model.get_best_action()
+            while not model.landed:
+                next_state = model.get_next_state(learner.state, action)
+                next_state_pos = model.get_position(next_state)
+                reward = model.get_reward(next_state_pos, action)
+                action = learner.get_best_action(next_state, reward)
+                model.set_state(next_state)
+                learner.set_state(next_state)
+        return learner
